@@ -3,7 +3,6 @@
 
 机器人状态版本需要注意更改
 注意生成频道部分的时间戳，要从60改为3600
-开启最下边的在线验证，以便bm表示在线
 """
 # 导入机json文件
 import json
@@ -587,12 +586,7 @@ async def print_btn_value1(b: Bot, e: Event):
         a = time_date['time'] = 7
         # 更新卡片
         await update(msg_id, a)
-
-
-"""# 机器人在线验证 部署端启用
-@bot.task.add_interval(minutes=30)
-async def verify():
-    requests.post('http://bot.gekj.net/api/v1/online.bot', headers={'UUID': 'e0d30d75-1c64-400e-9069-53aba4d0516d'})"""
+        
 
 # 运行机器人
 bot.run()
