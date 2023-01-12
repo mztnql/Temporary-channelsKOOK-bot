@@ -389,7 +389,7 @@ async def create(guild_id, a, target_id, user_id):
     # 获取当前时间戳
     now_time = time.time()
     # 计算出b小时后的时间戳
-    expire_time = now_time + b * timestamp
+    expire_time = now_time + b * int(timestamp)
     # 如果字典里没有服务器id那么就频道分组肯定也没有
     if guild_id not in user_date:
         # 创建频道分组并且获得分组id
@@ -400,7 +400,7 @@ async def create(guild_id, a, target_id, user_id):
     # 获取当前服务器创建了多少个频道
     num1 = len(user_date[guild_id]['频道id'])
     # 以数字格式来判断
-    if num1 < num:
+    if num1 < int(num):
         # 创建频道并且获取创建的频道id
         pid_id = await create_category(guild_id, user_date[guild_id]['频道分组id'], name + str(b) + '小时', kind)
 
