@@ -4,16 +4,13 @@
 机器人状态版本需要注意更改
 注意生成频道部分的时间戳，要从60改为3600
 """
-# 导入机json文件
 import json
-# 导入时间
+import os
 import time
-# 导入Union集合
 from typing import Union
-# 导入异步
 import aiofiles
-# 复制
 import copy
+import logging
 # 机器人在线验证模块
 import requests
 
@@ -42,9 +39,17 @@ user_date = {}
 # 时间字典 默认5
 time_date = {'time': 5}
 
+logging.basicConfig(
+    filename='log.txt',
+    level=logging.INFO,  # 设置日志级别为DEBUG
+    format='[%(asctime)s] - [%(levelname)s] - [%(message)s]')
+
 
 # 读取文件
 async def read_file(path) -> dict:
+    if not os.path.exists(path):
+        async with aiofiles.open(path, 'w', encoding='utf-8') as fa:
+            await fa.write(json.dumps({}))
     async with aiofiles.open(path, 'r', encoding='utf-8') as r:
         return json.loads(await r.read())
 
@@ -70,9 +75,6 @@ async def start():
         await guild_list(guild_id)
 
     # 判断频道是否过了时间
-    # 首先我们用 copy.deepcopy 将 guild_setting 复制出来一份，因为在遍历字典时修改字典的内容会报错
-    user_date_copy = copy.deepcopy(user_date)
-
     # 遍历字典内的键和值，分别为channel_id和value
     for channel_id, value in user_date_copy.items():
         # 遍历value里的 频道id 的键和值
@@ -90,34 +92,16 @@ async def start():
         await write_file(path_id, user_date)
 
     # 让机器人开始听，第一个数值为歌曲名，第二个数值为歌曲作者，第三个数值为音乐软件图标['cloudmusic'、'qqmusic'、'kugou']-网易云，qq音乐，酷狗音乐
-    await bot.client.update_listening_music('当前版本:1.4.0', '临时频道管理bot', "cloudmusic")
+    await bot.client.update_listening_music('当前版本:1.4.2', '临时频道管理bot', "cloudmusic")
+
+    # 输出日志
+    logging.info(f'bot成功启动')
 
 
 # 发送消息接口，指定用户，临时消息
 async def msg(target, mess, user_id):
     await bot.client.gate.request('POST', 'message/create',
                                   data={'target_id': target, 'content': mess, 'temp_target_id': user_id})
-
-
-# 发送消息接口
-async def msg_all(target, mess):
-    await bot.client.gate.request('POST', 'message/create',
-                                  data={'target_id': target, 'content': mess})
-
-
-# 删除消息接口
-async def del_msg(msg_id: str):
-    result = await bot.client.gate.request('POST', 'message/delete', data={'msg_id': msg_id})
-    return result
-
-
-# 创建频道接口
-async def create_category(guild_id, parent_id, name, kind):
-    return \
-        (await bot.client.gate.request('POST', 'channel/create',
-                                       data={'guild_id': guild_id, 'parent_id': parent_id, 'name': name,
-                                             'type': kind}))[
-            'id']
 
 
 # 创建频道分组接口
@@ -140,7 +124,7 @@ async def create_category4(channel_id, number):
                                           data={'channel_id': channel_id, 'voice_quality': number}))
 
 
-# 获取一个语音频道里所有用户id
+# 获取一个语音频道里所有用户id，并修改人数上限
 async def user_all(channel_id):
     # 获取所有用户id
     user_id = await bot.client.gate.request('GET', 'channel/user-list', params={'channel_id': channel_id})
@@ -151,59 +135,38 @@ async def user_all(channel_id):
     a = len(us_id)
     # 更改频道人数上限
     await create_category3(channel_id, a)
+    # 输出日志
+    logging.info(f'频道:{channel_id}修改了人数上限')
 
 
 # 根据服务器id和用户id获取所在语音频道id
-async def guild_user(guild_id, user_id, text):
+async def guild_user(guild_id, user_id, text, num_all):
     channel_id_1 = await bot.client.gate.request('GET', 'channel-user/get-joined-channel',
                                                  params={'guild_id': guild_id, 'user_id': user_id})
     # 储存频道id字典
     channel_id = []
-    channel_id2 = []
     # 将接口返回值里的频道id储存进列表
     for chan_nel in channel_id_1['items']:
-        channel_id2.append(chan_nel)
-        channel_id.append(chan_nel['id'])
+        channel_id.append(chan_nel)
     # 判断列表内数据是否为空
-    if not channel_id2:
+    if not channel_id:
         # 为空的话什么也不干
         await msg(text, '您不在语音内', user_id)
+        return
     else:
-        # 获取语音频道里所有用户id
-        await user_all(channel_id)
+        if num_all == 0:
+            # 获取语音频道里所有用户id
+            await create_category3(channel_id_1['items'][0]['id'], 0)
+        else:
+            # 获取语音频道里所有用户id
+            await user_all(channel_id_1['items'][0]['id'])
         await msg(text, '修改成功', user_id)
-
-
-# 根据服务器id和用户id获取所在语音频道id--2
-async def guild_user2(guild_id, user_id, text):
-    channel_id_1 = await bot.client.gate.request('GET', 'channel-user/get-joined-channel',
-                                                 params={'guild_id': guild_id, 'user_id': user_id})
-    # 储存频道id字典
-    channel_id = []
-    channel_id2 = []
-    # 将接口返回值里的频道id储存进列表
-    for chan_nel in channel_id_1['items']:
-        channel_id2.append(chan_nel)
-        channel_id.append(chan_nel['id'])
-    # 判断列表内数据是否为空
-    if not channel_id2:
-        # 为空的话什么也不干
-        await msg(text, '您不在语音内', user_id)
-    else:
-        # 获取语音频道里所有用户id
-        await create_category3(channel_id, 0)
-        await msg(text, '修改成功', user_id)
-
-
-# 删除频道接口
-async def del_create(channel_del):
-    return \
-        (await bot.client.gate.request('POST', 'channel/delete',
-                                       data={'channel_id': channel_del}))
 
 
 # 机器人离开服务器
 async def user_del(guild_id):
+    # 输出日志
+    logging.info(f'机器人退出了服务器:{guild_id}')
     return \
         (await bot.client.gate.request('POST', 'guild/leave',
                                        data={'guild_id': guild_id}))
@@ -211,15 +174,18 @@ async def user_del(guild_id):
 
 # 获取服务器信息接口,检测用户是否删除了频道
 async def guild_list(guild_id):
+    # 声明全局，复制字典
+    global user_date
     guild_temp = await bot.client.gate.request('GET', 'channel/list', params={'guild_id': guild_id})
 
     # 创建一个储存服务器频道id的列表
     temp = []
     # 创建一个储存字典服务器频道id的列表
     channel_id = []
-    # 声明全局，复制字典
-    global user_date
+
+    # 复制一份字典
     user_date_copy = copy.deepcopy(user_date)
+
     # 获取当前服务器所有频道id
     for channel_list in guild_temp['items']:
         # 把服务器频道id都写入到列表里
@@ -309,6 +275,12 @@ async def update(msg_id, a):
 # 卡片
 @bot.command(name='控制卡片')
 async def card(m: Message):
+    # 判断是否为私聊
+    channel_type = m.channel_type.value
+    if channel_type == 'PERSON':
+        # 输出日志
+        logging.info(f'用户:{m.author.username}想要私信使用bot')
+        return
     a = time_date['time']
     await m.ctx.channel.send(
         CardMessage(
@@ -359,13 +331,11 @@ async def card(m: Message):
 # 自定义时间
 @bot.command(name='指定时间')
 async def time_diy(m: Message, diy_time: int = 12):
-    # 输入的数值不能大于24小时
-    if diy_time <= 24:
-        # 将当前输入时间存入字典
-        time_date['time'] = diy_time
-        await m.ctx.channel.send('指定时间为' + str(diy_time), temp_target_id=m.author.id)
-    else:
-        await m.ctx.channel.send('时间请勿大于24小时', temp_target_id=m.author.id)
+    # 将当前输入时间存入字典
+    time_date['time'] = diy_time
+    await m.ctx.channel.send(f'已将创建时频道持续时间指定为:`{str(diy_time)}`', temp_target_id=m.author.id)
+    # 输出日志
+    logging.info(f'用户:{m.author.username}在服务器:{m.ctx.guild.id}将时间指定为{str(diy_time)}')
 
 
 # 删除指定频道
@@ -416,6 +386,8 @@ async def del_channel(m: Message, channel_id='Not'):
 
         else:
             await m.ctx.channel.send('删除失败，请联系机器制作人')
+            # 输出日志
+            logging.warning('!'*5 + '机器人删除频道出问题' + '!'*5)
 
 
 # 运行创建频道，生成时间戳
@@ -463,6 +435,8 @@ async def create(guild_id, a, target_id, user_id):
             # 将频道id写入字典，并保存进文件
             user_date[guild_id]['频道id'][pid_id] = expire_time
             await write_file(path_id, user_date)
+            # 输出日志
+            logging.info(f'服务器:{guild_id}创建了一个临时语音频道')
 
         # 创建文字频道
         elif a == 2:
@@ -472,9 +446,13 @@ async def create(guild_id, a, target_id, user_id):
             # 将频道id写入字典，并保存进文件
             user_date[guild_id]['频道id'][pid_id] = expire_time
             await write_file(path_id, user_date)
+            # 输出日志
+            logging.info(f'服务器:{guild_id}创建了一个临时文字频道')
 
     else:
         await msg(target_id, '当前服务器频道临时数量已达上限', user_id)
+        # 输出日志
+        logging.info(f'服务器:{guild_id}临时频道数量达到了上限')
 
 
 # 定时删除到期频道
@@ -515,6 +493,8 @@ async def print_btn_value2(b: Bot, e: Event):
         # 删除对应服务器信息，写入文件
         del user_date[guild_id]
         await write_file(path_id, user_date)
+        # 输出日志
+        logging.info(f'服务器:{guild_id}提出了机器人')
     else:
         pass
 
@@ -536,12 +516,16 @@ async def print_btn_value3(b: Bot, e: Event):
     if channel_id == pid_id:
         user_date[guild_id]['频道分组id'] = 0
         await write_file(path_id, user_date)
+        # 输出日志
+        logging.info(f'服务器:{guild_id}删除了频道分组')
         return
 
     # 如果删除的是频道
-    if channel_id in user_date_copy[guild_id]['频道id']:
+    elif channel_id in user_date_copy[guild_id]['频道id']:
         del user_date[guild_id]['频道id'][channel_id]
         await write_file(path_id, user_date)
+        # 输出日志
+        logging.info(f'服务器:{guild_id}删除了一个临时频道')
         return
 
 
@@ -567,11 +551,11 @@ async def print_btn_value1(b: Bot, e: Event):
 
     # 更改频道人数上线为当前人数
     elif val == 'channel':
-        await guild_user(guild_id, user_id, target_id)
+        await guild_user(guild_id, user_id, target_id, 1)
 
     # 恢复频道id人数上限为不限制
     elif val == 'restore':
-        await guild_user2(guild_id, user_id, target_id)
+        await guild_user(guild_id, user_id, target_id, 0)
 
     # 一键删除所有临时频道
     elif val == 'del_pid':
@@ -584,15 +568,16 @@ async def print_btn_value1(b: Bot, e: Event):
         # 判断服务器是否在字典里
         if guild_id in user_date_copy:
             channel_grouping = user_date_copy[guild_id]['频道分组id']
-            # 判断服务器id是否在字典里
+            # 判断服务器频道id是否在字典里并重复删除临时频道
             for channel_id in user_date_copy[guild_id]['频道id']:
-                # 重复删除临时频道
                 await bot.client.delete_channel(channel_id)
             # 直接覆写
             user_date_copy[guild_id] = {'频道分组id': channel_grouping, '频道id': {}}
             # 将字典存入文件
             await write_file(path_id, user_date)
             await msg(target_id, '删除成功', user_id)
+            # 输出日志
+            logging.info(f'用户:{user_id}删除了所有临时频道')
 
         # 如果不在则提示
         else:
@@ -672,6 +657,17 @@ async def print_btn_value1(b: Bot, e: Event):
         a = time_date['time'] = 7
         # 更新卡片
         await update(msg_id, a)
+
+
+# 给某人的小惊喜
+@bot.command(regex=r'[\s\S]*')
+async def card123(m: Message):
+    user_id = m.author.id
+    if user_id == '1966740491':
+        await bot.client.add_reaction(m, emoji='🤡')
+        # 输出日志
+        logging.info(f'触发了彩蛋')
+
 
 # 运行机器人
 bot.run()
