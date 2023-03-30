@@ -1,4 +1,4 @@
-# Temporary-channelsKOOK-bot
+# Temporary-channelsKOOK-bot-1.4.2
 kook临时频道机器人，用于创建临时频道
 机器人创建python版本为3.10，请在至少python3.6（应该）上运行
 
