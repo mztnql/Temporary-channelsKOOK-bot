@@ -46,7 +46,7 @@ async def start():
     global channel_data
     channel_data = await Mainfunction.read_file(channel_data_path)
     await Mainfunction.data_upd(channel_data)
-    await bot.client.update_listening_music('当前版本:1.4.3', '临时频道管理bot', "cloudmusic")
+    await bot.client.update_listening_music('当前版本:1.4.4', '临时频道管理bot', "cloudmusic")
 
 
 @bot.command(name='控制卡片')
