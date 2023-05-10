@@ -1,0 +1,6 @@
+{
+  "token": "你机器人的token",
+  "channel_max": 30,
+  "channel_month_max": 20,
+  "timestamp": 60
+}
